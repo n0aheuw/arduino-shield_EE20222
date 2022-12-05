@@ -1,8 +1,8 @@
 
-Arduino ShieldEE20222
+Arduino Shield EE20222
 =======
 
-Arduino ShieldEE20222 is a coding project for the Arduino UNO where
+Arduino Shield EE20222 is a coding project for the Arduino UNO where
 we designed a PCB with three seperate sensors to test for temperature,
 light and acceleration. 
 
