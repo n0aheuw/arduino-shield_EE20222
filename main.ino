@@ -12,10 +12,12 @@
 int chk;
 int sensorValue = 0;
 int temp = 0;
+int amb = 0;
 int accelx = 0;
 int accely = 0;
 int accelz = 0;
 bool printed = true;
+int toleranceMode = 0;
 
 //INTIALISATION
 HIH61xx<TwoWire> hih(Wire);
@@ -34,20 +36,17 @@ void readErrorHandler(HIH61xx<TwoWire>& hih)
 }
 
 void setup() { 
-  #if F_CPU >= 12000000UL
-    Serial.begin(9600);
-  #else
-    Serial.begin(9600);
-  #endif
-  
-  //HIH6120
+
+  Serial.begin(9600);
+ 
+  //HIH6120 setup
   Wire.begin();
   hih.setPowerUpErrorHandler(powerUpErrorHandler);
   hih.setReadErrorHandler(readErrorHandler);
   hih.initialise();
   samplingInterval.start(1000, AsyncDelay::MILLIS); 
 
-  //MMA8451
+  //MMA8451 setup
   Serial.println("Adafruit MMA8451 test!");
   
 
@@ -69,15 +68,20 @@ void setup() {
   pinMode(12, OUTPUT);  
   pinMode(13, OUTPUT);
 }
-
+//TSL25 Function
+void TSL257(){
+  sensorValue = analogRead(TSLPIN);
+  Serial.println("SENSOR TSL257");
+  Serial.println(sensorValue);
+  Serial.println();
+}
 //MMA8451 Function
 void MMA8451(){
+
+  Serial.println("SENSOR MMA8451");
+
   mma.begin();
   mma.read();
-  Serial.print("X:\t"); Serial.print(mma.x); 
-  Serial.print("\tY:\t"); Serial.print(mma.y); 
-  Serial.print("\tZ:\t"); Serial.print(mma.z); 
-  Serial.println();
  
   sensors_event_t event; 
   mma.getEvent(&event);
@@ -129,6 +133,8 @@ void HIH6120setup(){
 }
 
 void HIH6120(){
+
+
   while(1){
   if (samplingInterval.isExpired() && !hih.isSampling()) {
     hih.start(); 
@@ -144,53 +150,75 @@ void HIH6120(){
     Serial.println("SENSOR HIH6120");
     Serial.print("RH: ");
     Serial.print(hih.getRelHumidity() / 100.0);
+    amb = hih.getRelHumidity() / 100.0;
     Serial.println(" %");
     Serial.print("Ambient: ");
     Serial.print(hih.getAmbientTemp() / 100.0);
     temp = (hih.getAmbientTemp())/100;
     Serial.println(" deg C");
-    Serial.print("Status: ");
-    Serial.println(hih.getStatus());
     return;
   }
   }
 }
 //LED Function
-void LED(){
-   
-  digitalWrite(11, LOW);
-  digitalWrite(12, LOW);
-  digitalWrite(13, LOW);
-  
-  if (temp < -5 || temp > 100){
-    digitalWrite(13, HIGH);
+void ToleranceCheck(){
+
+  if (temp < -5 || temp > 100){ //Tolerance check for temperature
+    toleranceMode = 1;
   }
-  else if (accelx < -15 || accelx > 15 || accely < -15 || accely > 15 || accelz < -15 || accelz > 15){
-    digitalWrite(13, HIGH);
-    digitalWrite(12, HIGH);
+  else if (amb < 10 || amb > 60){ //Tolerance check for moisture
+    toleranceMode = 2;
   }
-  else if (sensorValue < 800){
-    digitalWrite(13, HIGH);
-    digitalWrite(11, HIGH);
+  else if (accelx < -15 || accelx > 15 || accely < -15 || accely > 15 || accelz < -15 || accelz > 15){ //Tolerance check for accelration
+    toleranceMode = 3;
   }
-  else{
-    digitalWrite(11, HIGH);
+  else if (sensorValue < 300){ //Tolerance check for light level
+    toleranceMode = 4;
+  }
+  else{ //Default State
+    toleranceMode = 0;
   }
   return;
 }
 
 //MAIN CODE
 void loop(void) {
-  sensorValue = analogRead(TSLPIN);
-  Serial.println("SENSOR TSL257");
-  Serial.println(sensorValue);
-  Serial.println("");
-  Serial.println("SENSOR MMA8451");
+  TSL257();    //Calls all the separate functions
   MMA8451();
-  Serial.println("SENSOR HIH6120");
   HIH6120();
-  Serial.println("");
-  LED();
+  ToleranceCheck();
+
+  //LED Lighting according to there corresponding tolerance mode
+  if (toleranceMode == 0) {
+    delay(1000);
+    digitalWrite(11, HIGH);
+    digitalWrite(12, LOW);
+    digitalWrite(13, LOW);
+  }
+  else if (toleranceMode == 1) {
+    delay(1000);
+    digitalWrite(13, HIGH);
+    digitalWrite(11, LOW);
+    digitalWrite(12, LOW);
+  }
+  else if (toleranceMode == 2) {
+    delay(1000);
+    digitalWrite(13, !digitalRead(13));
+    digitalWrite(12, HIGH);
+    digitalWrite(11, LOW);
+  }
+  else if (toleranceMode == 3) {
+    delay(1000);
+    digitalWrite(12, !digitalRead(12));
+    digitalWrite(13, HIGH);
+    digitalWrite(11, LOW);
+  }
+  else if (toleranceMode == 4) {
+    delay(1000);
+    digitalWrite(11, LOW);
+    digitalWrite(12, HIGH);
+    digitalWrite(13, LOW);
+  }
 }
 
 //Made by Noah Johnson @University of Bath 5th December 2022
