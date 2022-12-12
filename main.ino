@@ -6,8 +6,8 @@
 #include <Adafruit_Sensor.h>
 
 //CONSTANTS
-#define TSLPIN A1 
-
+#define TSLPIN A1
+ 
 //VARIABLES
 int chk;
 int sensorValue = 0;
@@ -23,46 +23,38 @@ int toleranceMode = 0;
 HIH61xx<TwoWire> hih(Wire);
 Adafruit_MMA8451 mma = Adafruit_MMA8451();
 AsyncDelay samplingInterval;
-
 void powerUpErrorHandler(HIH61xx<TwoWire>& hih)
 {
   Serial.println("Error powering up HIH61xx device");
 }
-
-
 void readErrorHandler(HIH61xx<TwoWire>& hih)
 {
   Serial.println("Error reading from HIH61xx device");
 }
 
 void setup() { 
-
+  //Starts Serial Output
   Serial.begin(9600);
- 
+  
   //HIH6120 setup
   Wire.begin();
   hih.setPowerUpErrorHandler(powerUpErrorHandler);
   hih.setReadErrorHandler(readErrorHandler);
   hih.initialise();
   samplingInterval.start(1000, AsyncDelay::MILLIS); 
-
+  
   //MMA8451 setup
   Serial.println("Adafruit MMA8451 test!");
-  
-
   if (! mma.begin()) {
     Serial.println("Couldnt start");
     while (1);
   }
-  Serial.println("MMA8451 found!");
-  
+  Serial.println("MMA8451 found!"); 
   mma.setRange(MMA8451_RANGE_2_G);
-  
   Serial.print("Range = "); Serial.print(2 << mma.getRange());  
   Serial.println("G");
   Serial.println("");
-
-  
+ 
   //LED pin Setup
   pinMode(11, OUTPUT);  
   pinMode(12, OUTPUT);  
@@ -77,12 +69,9 @@ void TSL257(){
 }
 //MMA8451 Function
 void MMA8451(){
-
   Serial.println("SENSOR MMA8451");
-
   mma.begin();
-  mma.read();
- 
+  mma.read(); 
   sensors_event_t event; 
   mma.getEvent(&event);
   
@@ -92,11 +81,11 @@ void MMA8451(){
   Serial.println("m/s^2 ");
   accelx = event.acceleration.x;
   accely = event.acceleration.y;
-  accelz = event.acceleration.z;
+  accelz = event.acceleration.z;  
   
-  uint8_t o = mma.getOrientation();
-  
-  switch (o) {
+  //Prints the orientation of the 
+  uint8_t ori = mma.getOrientation();  
+  switch (ori) {
     case MMA8451_PL_PUF: 
       Serial.println("Portrait Up Front");
       break;
@@ -125,44 +114,36 @@ void MMA8451(){
   Serial.println();
   return;  
 }
-
 //HIH6120 Function
-void HIH6120setup(){
-  hih.initialise();
-  return;
-}
-
 void HIH6120(){
-
-
+  
   while(1){
   if (samplingInterval.isExpired() && !hih.isSampling()) {
     hih.start(); 
     printed = false;
     samplingInterval.repeat();
     Serial.println("Sampling started:");
-  }
-  
+  } 
   hih.process();
-
+  
   if (hih.isFinished() && !printed) {
     printed = true;
     Serial.println("SENSOR HIH6120");
     Serial.print("RH: ");
     Serial.print(hih.getRelHumidity() / 100.0);
-    amb = hih.getRelHumidity() / 100.0;
+    amb = hih.getRelHumidity() / 100.0; //Stores ambient humidity
     Serial.println(" %");
     Serial.print("Ambient: ");
     Serial.print(hih.getAmbientTemp() / 100.0);
-    temp = (hih.getAmbientTemp())/100;
+    temp = (hih.getAmbientTemp())/100;//Stores ambient temperature
     Serial.println(" deg C");
+    Serial.println();
     return;
   }
   }
 }
-//LED Function
+//Tolerance Function
 void ToleranceCheck(){
-
   if (temp < -5 || temp > 100){ //Tolerance check for temperature
     toleranceMode = 1;
   }
@@ -172,7 +153,7 @@ void ToleranceCheck(){
   else if (accelx < -15 || accelx > 15 || accely < -15 || accely > 15 || accelz < -15 || accelz > 15){ //Tolerance check for accelration
     toleranceMode = 3;
   }
-  else if (sensorValue < 300){ //Tolerance check for light level
+  else if (sensorValue < 500){ //Tolerance check for light level
     toleranceMode = 4;
   }
   else{ //Default State
@@ -180,14 +161,13 @@ void ToleranceCheck(){
   }
   return;
 }
-
 //MAIN CODE
 void loop(void) {
   TSL257();    //Calls all the separate functions
   MMA8451();
   HIH6120();
   ToleranceCheck();
-
+  
   //LED Lighting according to there corresponding tolerance mode
   if (toleranceMode == 0) {
     delay(1000);
